@@ -1,0 +1,40 @@
+name: SS OIL Yeni APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter create --platforms android --org com.ssoil .
+      - name: Configure Android permissions and SS OIL icon
+        run: |
+          python3 - <<'PYCODE'
+          from pathlib import Path
+          manifest=Path('android/app/src/main/AndroidManifest.xml')
+          text=manifest.read_text()
+          text=text.replace('<application', '<uses-permission android:name="android.permission.INTERNET"/><uses-permission android:name="android.permission.CAMERA"/><application android:usesCleartextTraffic="true"',1)
+          text=text.replace('android:label="ss_oil_yeni"','android:label="SS OIL"')
+          manifest.write_text(text)
+          import shutil
+          for icon in Path('android_icons').glob('mipmap-*/ic_launcher.png'):
+              dest=Path('android/app/src/main/res')/icon.parent.name/'ic_launcher.png'
+              dest.parent.mkdir(parents=True,exist_ok=True)
+              shutil.copy2(icon,dest)
+          PYCODE
+      - run: flutter pub get
+      - run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - run: flutter build apk --debug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SS-OIL-Yeni-APK
+          path: build/app/outputs/flutter-apk/app-debug.apk
